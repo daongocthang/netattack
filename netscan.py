@@ -1,3 +1,5 @@
+#!/data/data/com.termux/files/usr/bin/python
+
 import argparse
 
 from scapy.layers.l2 import ARP, Ether, srp
