@@ -1,8 +1,20 @@
 #!/data/data/com.termux/files/usr/bin/python
 
 import argparse
+import shutil
 
 from scapy.layers.l2 import ARP, Ether, srp
+
+OUI_FILE = 'assets/oui.txt'
+
+
+def manf(bss):
+    file = open(OUI_FILE, 'r')
+    for line in file.read().splitlines():
+        base16 = bss.upper()[:8].replace(':', '')
+        if line.startswith(base16):
+            return line.split('\t', 1)[1].lstrip('\t')
+    return 'unknown'
 
 
 def get_args():
@@ -18,16 +30,16 @@ def scan(ip):
     res = srp(pkt, timeout=3, verbose=False)[0]
     clients = []
     for sent, recv in res:
-        clients.append({'ip': recv.psrc, 'mac': recv.hwsrc})
+        clients.append({'ip': recv.psrc, 'mac': recv.hwsrc, 'vendor': manf(recv.hwsrc)})
     return clients
 
 
 def show(clients):
-    hd = 'IP' + ' ' * 20 + 'MAC' + ' ' * 14
-    print(hd)
-    print('-' * len(hd))
+    cols = ['IP', 'MAC', 'Vendor']
+    print('{c[0]:20}{c[1]:22}{c[2]}'.format(c=cols))
+    print('-' * shutil.get_terminal_size().columns)
     for elem in clients:
-        print('{ip:20}  {mac}'.format(ip=elem['ip'], mac=elem['mac']))
+        print("{p:20}{m:22}{v}".format(p=elem['ip'], m=elem['mac'], v=elem['vendor']))
 
 
 if __name__ == '__main__':
