@@ -8,6 +8,10 @@ from scapy.layers.l2 import ARP, Ether, srp
 OUI_FILE = 'assets/oui.txt'
 
 
+def _truncate(val, size):
+    return val[:size] + '..' if len(val) > size else val
+
+
 def manf(bss):
     file = open(OUI_FILE, 'r')
     for line in file.read().splitlines():
@@ -37,9 +41,11 @@ def scan(ip):
 def show(clients):
     cols = ['IP', 'MAC', 'Vendor']
     print('{c[0]:20}{c[1]:22}{c[2]}'.format(c=cols))
-    print('-' * shutil.get_terminal_size().columns)
+    # cols = shutil.get_terminal_size().columns
+    max_width = 64
+    print('-' * max_width)
     for elem in clients:
-        print("{p:20}{m:22}{v}".format(p=elem['ip'], m=elem['mac'], v=elem['vendor']))
+        print("{p:20}{m:22}{v}".format(p=elem['ip'], m=elem['mac'], v=_truncate(elem['vendor'], 20)))
 
 
 if __name__ == '__main__':

