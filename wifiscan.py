@@ -2,6 +2,8 @@
 
 import argparse
 import os
+import sys
+import threading
 import time
 from threading import Thread
 
@@ -28,6 +30,7 @@ def callback(pkt: scapy.Packet):
         crypto = stats.get('crypto')
 
         networks.append((bssid, signal, channel, crypto, ssid))
+        print((bssid, signal, channel, crypto, ssid))
 
 
 def print_all():
@@ -37,6 +40,10 @@ def print_all():
         print('{h[0]:20}{h[1]:20}{h[2]:20}{h[4]}'.format(h=hdr))
         for data in networks:
             print('{d[0]:20}{d[1]:20}{d[2]:20}{d[4]}'.format(d=data))
+
+        if stop_thread:
+            break
+
         time.sleep(0.5)
 
 
@@ -45,6 +52,10 @@ def change_channel():
     while True:
         os.system('{} iwconfig {} channel {}'.format(root, iface, ch))
         ch = ch % 14 + 1
+
+        if stop_thread:
+            break
+
         time.sleep(0.5)
 
 
@@ -54,10 +65,17 @@ if __name__ == '__main__':
     args = parser.parse_args()
     iface = args.iface
 
+    stop_thread = False
+
     printer = Thread(target=print_all, daemon=True)
     printer.start()
 
     channel_changer = Thread(target=change_channel, daemon=True)
     channel_changer.start()
-
-    scapy.sniff(prn=callback, iface=iface)
+    try:
+        scapy.sniff(prn=callback, iface=iface, store=False)
+    except KeyboardInterrupt:
+        stop_thread = True
+        time.sleep(1)
+        for t in threading.enumerate():
+            print('{:20}{}'.format(t.name, t.is_alive()))
