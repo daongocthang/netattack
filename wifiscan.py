@@ -1,81 +1,68 @@
 #!/usr/bin/python3
-
-import argparse
 import os
-import sys
-import threading
+import shutil
 import time
-from threading import Thread
 
-import scapy.all as scapy
-from scapy.layers.dot11 import Dot11Beacon, Dot11, Dot11Elt
+import pywifi
 
-networks = []
-
-root = 'tsudo' if os.uname().nodename == 'localhost' else 'sudo'
+AKM = ['NONE', 'WPA', 'WPA/PSK', 'WPA2', 'WPA2/PSK', 'UNKNOWN']
+CIPHER = ['NONE', 'WEP', 'TKIP', 'CCMP', 'UNKNOWN']
+AUTH = ['OPEN', 'SHARED']
 
 
-def callback(pkt: scapy.Packet):
-    if pkt.haslayer(Dot11Beacon):
-        bssid = pkt[Dot11].addr2
-        ssid = pkt[Dot11Elt].info
-
-        try:
-            signal = pkt.dBn_AntSignal
-        except:
-            signal = 'N/A'
-
-        stats = pkt[Dot11Beacon].network_stats()
-        channel = stats.get("channel")
-        crypto = stats.get('crypto')
-
-        networks.append((bssid, signal, channel, crypto, ssid))
-        print((bssid, signal, channel, crypto, ssid))
+def get_ifaces():
+    w = pywifi.PyWiFi()
+    return w.interfaces()
 
 
-def print_all():
-    while True:
-        os.system('clear')
-        hdr = ['BSSID', 'PWR', 'CH', 'ENC', 'SSID']
-        print('{h[0]:20}{h[1]:20}{h[2]:20}{h[4]}'.format(h=hdr))
-        for data in networks:
-            print('{d[0]:20}{d[1]:20}{d[2]:20}{d[4]}'.format(d=data))
-
-        if stop_thread:
-            break
-
-        time.sleep(0.5)
-
-
-def change_channel():
-    ch = 1
-    while True:
-        os.system('{} iwconfig {} channel {}'.format(root, iface, ch))
-        ch = ch % 14 + 1
-
-        if stop_thread:
-            break
-
-        time.sleep(0.5)
+def scan(iface):
+    iface.scan()
+    time.sleep(5)
+    bsses = iface.scan_results()
+    closed = []
+    networks = []
+    for bss in bsses:
+        if bss.bssid in closed:
+            continue
+        closed.append(bss.bssid)
+        networks.append((
+            bss.bssid,
+            bss.ssid,
+            bss.freq,
+            bss.signal,
+            bss.cipher,
+            bss.akm
+        ))
+    return sorted(networks, key=lambda st: st[3], reverse=True)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', metavar='IFACE', dest='iface')
-    args = parser.parse_args()
-    iface = args.iface
+    iface = get_ifaces()[0]
+    if not iface:
+        print('[-] cannot found wlan interface')
+        os._exit(0)
 
-    stop_thread = False
-
-    printer = Thread(target=print_all, daemon=True)
-    printer.start()
-
-    channel_changer = Thread(target=change_channel, daemon=True)
-    channel_changer.start()
     try:
-        scapy.sniff(prn=callback, iface=iface, store=False)
+        while True:
+            results = scan(iface)
+
+            if os.name == 'nt':
+                _ = os.system('cls')
+            else:
+                _ = os.name('clear')
+
+            print("{:27}{:13}{:13}{:17}{:16}{}".format('BSSID', 'FREQ', 'SIGNAL', 'ENC', 'CIPHER', 'SSID'))
+            max_width = shutil.get_terminal_size().columns
+            print('-' * max_width)
+            for res in results:
+                bssid = res[0][:-1]
+                ssid = res[1]
+                freq = res[2] / 1000000
+                signal = res[3]
+                akm = AKM[res[5][0]]
+                auth = AUTH[res[4]]
+
+                print("{:27}{:<13}{:<13}{:<17}{:16}{}".format(bssid, freq, signal, akm, auth, ssid))
+
     except KeyboardInterrupt:
-        stop_thread = True
-        time.sleep(1)
-        for t in threading.enumerate():
-            print('{:20}{}'.format(t.name, t.is_alive()))
+        pass
