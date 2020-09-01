@@ -1,9 +1,13 @@
 #!/usr/bin/python3
+
+
+import argparse
 import os
 import shutil
 import time
 
 import pywifi
+
 
 AKM = ['NONE', 'WPA', 'WPA/PSK', 'WPA2', 'WPA2/PSK', 'UNKNOWN']
 CIPHER = ['NONE', 'WEP', 'TKIP', 'CCMP', 'UNKNOWN']
@@ -37,6 +41,11 @@ def scan(iface):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', metavar='FILTER', dest='filter', default='')
+
+    opt = parser.parse_args()
+
     iface = get_ifaces()[0]
     if not iface:
         print('[-] cannot found wlan interface')
@@ -51,10 +60,17 @@ if __name__ == '__main__':
             else:
                 _ = os.name('clear')
 
-            print("{:27}{:13}{:13}{:17}{:16}{}".format('BSSID', 'FREQ', 'SIGNAL', 'ENC', 'CIPHER', 'SSID'))
+            print("{:7}{:22}{:8}{:8}{:12}{:11}{}".format('ID', 'BSSID', 'FREQ', 'PWR', 'ENC', 'CIPHER', 'SSID'))
             max_width = shutil.get_terminal_size().columns
             print('-' * max_width)
+
+            i = 0
             for res in results:
+                if opt.filter not in res[1]:
+                    continue
+
+                i = i + 1
+
                 bssid = res[0][:-1]
                 ssid = res[1]
                 freq = res[2] / 1000000
@@ -62,7 +78,7 @@ if __name__ == '__main__':
                 akm = AKM[res[5][0]]
                 auth = AUTH[res[4]]
 
-                print("{:27}{:<13}{:<13}{:<17}{:16}{}".format(bssid, freq, signal, akm, auth, ssid))
+                print("{:<7}{:22}{:<8}{:<8}{:<12}{:11}{}".format('%2d' % i, bssid, freq, signal, akm, auth, ssid))
 
     except KeyboardInterrupt:
         pass
