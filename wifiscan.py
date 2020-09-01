@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 
 import argparse
@@ -58,7 +58,7 @@ if __name__ == '__main__':
             if os.name == 'nt':
                 _ = os.system('cls')
             else:
-                _ = os.name('clear')
+                _ = os.system('clear')
 
             print("{:7}{:22}{:8}{:8}{:12}{:11}{}".format('ID', 'BSSID', 'FREQ', 'PWR', 'ENC', 'CIPHER', 'SSID'))
             max_width = shutil.get_terminal_size().columns
