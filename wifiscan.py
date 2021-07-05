@@ -5,6 +5,7 @@ import argparse
 import os
 import shutil
 import time
+import sys
 
 import pywifi
 
@@ -39,10 +40,17 @@ def scan(iface):
         ))
     return sorted(networks, key=lambda st: st[3], reverse=True)
 
+class StoreDictKeyPair(argparse.Action):
+     def __call__(self, parser, namespace, values, option_string=None):
+         my_dict = {}
+         for kv in values.split(","):
+             k,v = kv.split("=")
+             my_dict[k] = v
+         setattr(namespace, self.dest, my_dict)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-f', metavar='FILTER', dest='filter', default='')
+    parser.add_argument('-f', metavar='FILTER', dest='filter', action=StoreDictKeyPair, default='')
 
     opt = parser.parse_args()
 
@@ -52,6 +60,12 @@ if __name__ == '__main__':
         os._exit(0)
 
     try:
+        mac_vendors=dict()
+        f=open('mac-vendor.txt','r')        
+        for line in f.readlines():            
+            line=line.replace('\n','').split('\t')
+            mac_vendors[line[0].lower()]=line[1]
+                
         while True:
             results = scan(iface)
 
@@ -60,25 +74,33 @@ if __name__ == '__main__':
             else:
                 _ = os.system('clear')
 
-            print("{:7}{:22}{:8}{:8}{:12}{:11}{}".format('ID', 'BSSID', 'FREQ', 'PWR', 'ENC', 'CIPHER', 'SSID'))
+            print("{:7}{:22}{:8}{:8}{:12}{:11}{:11}{}".format('ID', 'BSSID', 'FREQ', 'PWR', 'ENC', 'CIPHER', 'VENDOR','SSID'))
             max_width = shutil.get_terminal_size().columns
             print('-' * max_width)
 
             i = 0
+            f=opt.filter            
             for res in results:
-                if opt.filter not in res[1]:
-                    continue
-
-                i = i + 1
-
                 bssid = res[0][:-1]
                 ssid = res[1]
                 freq = res[2] / 1000000
+                vendor=mac_vendors.get(bssid[:8],'Unknown')
+                if f:
+                    if f.get('ssid','') not in ssid:
+                        continue
+                    if f.get('vendor','').lower() not in vendor.lower():
+                        continue
+                    if f.get('freq'):
+                        if f.get('freq') != '{:.0f}'.format(freq):
+                            continue                    
+
+                i = i + 1
+                                
                 signal = res[3]
                 akm = AKM[res[5][0]]
                 auth = AUTH[res[4]]
 
-                print("{:<7}{:22}{:<8}{:<8}{:<12}{:11}{}".format('%2d' % i, bssid, freq, signal, akm, auth, ssid))
+                print("{:<7}{:22}{:<8}{:<8}{:<12}{:11}{:11}{}".format('%2d' % i, bssid, freq, signal, akm, auth, vendor.split()[0], ssid))
 
     except KeyboardInterrupt:
         pass
